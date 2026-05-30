@@ -8,11 +8,9 @@ import { EquipmentGrid } from "@/components/equipment/EquipmentGrid";
 import { EquipmentFilters } from "@/components/equipment/EquipmentFilters";
 import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
-import { useEquipment } from "@/hooks/useEquipment";
 import type { EquipmentFilters as FiltersType, EquipmentWithOwner } from "@/types";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, X, MessageCircle } from "lucide-react";
 import type { EquipmentCategory } from "@/lib/supabase/types";
-import { MessageCircle } from "lucide-react";
 
 const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "905000000000";
 
@@ -25,11 +23,9 @@ const sortOptions = [
 
 function EkipmanlarContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const { getEquipment, loading } = useEquipment();
-
   const [equipment, setEquipment] = useState<EquipmentWithOwner[]>([]);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const [filters, setFilters] = useState<FiltersType>({
@@ -40,9 +36,26 @@ function EkipmanlarContent() {
   });
 
   const fetchEquipment = useCallback(async () => {
-    const { data, count } = await getEquipment(filters);
-    setEquipment(data);
-    setTotal(count);
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.category) params.set("category", filters.category);
+      if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+      if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+      if (filters.condition) params.set("condition", filters.condition);
+      if (filters.minRating) params.set("minRating", String(filters.minRating));
+      if (filters.onlyAvailable) params.set("onlyAvailable", "true");
+      if (filters.search) params.set("search", filters.search);
+      if (filters.sortBy) params.set("sortBy", filters.sortBy);
+      if (filters.page) params.set("page", String(filters.page));
+
+      const res = await fetch(`/api/equipment?${params}`);
+      const { data, count } = await res.json();
+      setEquipment(data || []);
+      setTotal(count || 0);
+    } finally {
+      setLoading(false);
+    }
   }, [filters]);
 
   useEffect(() => { fetchEquipment(); }, [fetchEquipment]);

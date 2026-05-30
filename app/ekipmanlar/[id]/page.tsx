@@ -14,10 +14,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StarRating } from "@/components/ui/StarRating";
 import { DateRangePicker } from "@/components/equipment/DateRangePicker";
 import { PageSpinner } from "@/components/ui/Spinner";
-import { useEquipment } from "@/hooks/useEquipment";
-import { useRentals } from "@/hooks/useRentals";
 import { useAuth } from "@/hooks/useAuth";
-import { createClient } from "@/lib/supabase/client";
 import { CATEGORY_LABELS, CONDITION_LABELS, formatPrice, formatDate, getDaysBetween, calculateRentalAmounts, getWhatsAppUrl } from "@/lib/utils";
 import type { EquipmentWithOwner, Review, ReviewWithReviewer } from "@/types";
 import { MessageCircle as WA } from "lucide-react";
@@ -28,8 +25,6 @@ export default function EkipmanDetayPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { getEquipmentById } = useEquipment();
-  const { getUnavailableDates } = useRentals();
 
   const [equipment, setEquipment] = useState<EquipmentWithOwner | null>(null);
   const [reviews, setReviews] = useState<ReviewWithReviewer[]>([]);
@@ -42,22 +37,11 @@ export default function EkipmanDetayPage() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: eq }, dates] = await Promise.all([
-        getEquipmentById(id),
-        getUnavailableDates(id),
-      ]);
-      if (eq) {
-        setEquipment(eq);
-        setUnavailableDates(dates);
-        // Load reviews
-        const supabase = createClient();
-        const { data: rv } = await (supabase
-          .from("reviews")
-          .select("*, reviewer:profiles!reviewer_id(*)")
-          .eq("equipment_id", id)
-          .order("created_at", { ascending: false }) as any);
-        setReviews((rv as ReviewWithReviewer[]) || []);
-      }
+      const res = await fetch(`/api/equipment/${id}`);
+      const { equipment: eq, reviews: rv, unavailableDates: dates } = await res.json();
+      setEquipment(eq);
+      setReviews(rv || []);
+      setUnavailableDates(dates || []);
       setLoading(false);
     };
     load();
@@ -82,9 +66,9 @@ export default function EkipmanDetayPage() {
     : null;
 
   const handleReserve = async () => {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push("/giris"); return; }
+    const res = await fetch("/api/auth/session");
+    const { authenticated } = await res.json();
+    if (!authenticated) { router.push("/giris"); return; }
     if (!startDate || !endDate) return;
     router.push(`/rezervasyon/${equipment.id}?start=${startDate}&end=${endDate}`);
   };
