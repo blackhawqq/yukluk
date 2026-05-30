@@ -5,33 +5,37 @@ import Link from "next/link";
 import { Plus, Pencil, Trash2, Package, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { useAuth } from "@/hooks/useAuth";
-import { useEquipment } from "@/hooks/useEquipment";
 import { CATEGORY_LABELS, formatPrice } from "@/lib/utils";
 import type { Equipment } from "@/types";
 import toast from "react-hot-toast";
 
 export default function IlanlarimPage() {
-  const { user } = useAuth();
-  const { getOwnerEquipment, updateEquipment, deleteEquipment, loading } = useEquipment();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    getOwnerEquipment(user.id).then(({ data }) => setEquipment(data || []));
-  }, [user]);
+    fetch("/api/equipment/my")
+      .then(r => r.json())
+      .then(({ equipment }) => { setEquipment(equipment || []); setLoading(false); });
+  }, []);
 
   const handleToggle = async (eq: Equipment) => {
-    await updateEquipment(eq.id, { is_available: !eq.is_available });
-    setEquipment((prev) => prev.map((e) => e.id === eq.id ? { ...e, is_available: !e.is_available } : e));
-    toast.success(eq.is_available ? "İlan pasife alındı" : "İlan aktif edildi");
+    const res = await fetch("/api/equipment/my", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ equipmentId: eq.id, is_available: !eq.is_available }),
+    });
+    if (res.ok) {
+      setEquipment(prev => prev.map(e => e.id === eq.id ? { ...e, is_available: !e.is_available } : e));
+      toast.success(eq.is_available ? "İlan pasife alındı" : "İlan aktif edildi");
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Bu ilanı silmek istediğinize emin misiniz?")) return;
-    const { error } = await deleteEquipment(id);
-    if (!error) {
-      setEquipment((prev) => prev.filter((e) => e.id !== id));
+    const res = await fetch(`/api/equipment/my?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setEquipment(prev => prev.filter(e => e.id !== id));
       toast.success("İlan silindi");
     } else {
       toast.error("İlan silinemedi");
@@ -43,9 +47,7 @@ export default function IlanlarimPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-playfair text-2xl font-bold text-dark">İlanlarım</h1>
         <Link href="/panel/ilan-ekle">
-          <Button size="sm">
-            <Plus className="w-4 h-4" /> Yeni İlan
-          </Button>
+          <Button size="sm"><Plus className="w-4 h-4" /> Yeni İlan</Button>
         </Link>
       </div>
 
@@ -56,23 +58,17 @@ export default function IlanlarimPage() {
           <Package className="w-12 h-12 text-stone/30 mx-auto mb-3" />
           <p className="font-semibold text-dark mb-1">Henüz ilanın yok</p>
           <p className="text-stone text-sm mb-4">İlk ilanını ekle!</p>
-          <Link href="/panel/ilan-ekle">
-            <Button size="sm">
-              <Plus className="w-4 h-4" /> İlan Ekle
-            </Button>
-          </Link>
+          <Link href="/panel/ilan-ekle"><Button size="sm"><Plus className="w-4 h-4" /> İlan Ekle</Button></Link>
         </div>
       ) : (
         <div className="space-y-4">
-          {equipment.map((eq) => (
+          {equipment.map(eq => (
             <div key={eq.id} className="bg-white rounded-2xl border border-cream-dark p-5">
               <div className="flex gap-4">
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-cream-dark flex-shrink-0">
                   {eq.images?.[0] ? (
                     <img src={eq.images[0]} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl">🎒</div>
-                  )}
+                  ) : <div className="w-full h-full flex items-center justify-center text-3xl">🎒</div>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-1">
@@ -90,11 +86,7 @@ export default function IlanlarimPage() {
                       <p className="text-stone text-xs">{eq.total_rentals} kiralama</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggle(eq)}
-                        className="p-2 rounded-lg hover:bg-cream-dark transition-colors text-stone hover:text-forest"
-                        title={eq.is_available ? "Pasife Al" : "Aktif Et"}
-                      >
+                      <button onClick={() => handleToggle(eq)} className="p-2 rounded-lg hover:bg-cream-dark transition-colors text-stone hover:text-forest">
                         {eq.is_available ? <ToggleRight className="w-5 h-5 text-forest" /> : <ToggleLeft className="w-5 h-5" />}
                       </button>
                       <Link href={`/panel/ilan-duzenle/${eq.id}`}>
@@ -102,10 +94,7 @@ export default function IlanlarimPage() {
                           <Pencil className="w-4 h-4" />
                         </button>
                       </Link>
-                      <button
-                        onClick={() => handleDelete(eq.id)}
-                        className="p-2 rounded-lg hover:bg-red-50 transition-colors text-stone hover:text-red-500"
-                      >
+                      <button onClick={() => handleDelete(eq.id)} className="p-2 rounded-lg hover:bg-red-50 transition-colors text-stone hover:text-red-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>

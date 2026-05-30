@@ -8,7 +8,6 @@ import { Input, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { CATEGORY_LABELS, CONDITION_LABELS, ISTANBUL_DISTRICTS } from "@/lib/utils";
 import { useEquipment } from "@/hooks/useEquipment";
-import { useAuth } from "@/hooks/useAuth";
 import type { CreateEquipmentData } from "@/types";
 import type { EquipmentCategory, EquipmentCondition } from "@/lib/supabase/types";
 import toast from "react-hot-toast";
@@ -26,8 +25,7 @@ interface EquipmentFormProps {
 
 export function EquipmentForm({ initialData, mode = "create" }: EquipmentFormProps) {
   const router = useRouter();
-  const { user } = useAuth();
-  const { createEquipment, updateEquipment, uploadImages, loading } = useEquipment();
+  const { uploadImages } = useEquipment();
 
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -72,7 +70,6 @@ export function EquipmentForm({ initialData, mode = "create" }: EquipmentFormPro
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
     setSubmitting(true);
     try {
       let imageUrls = form.images.filter((url) => url.startsWith("http"));
@@ -86,12 +83,20 @@ export function EquipmentForm({ initialData, mode = "create" }: EquipmentFormPro
       const data: CreateEquipmentData = { ...form, images: imageUrls };
 
       if (mode === "edit" && initialData?.id) {
-        const { error } = await updateEquipment(initialData.id, data);
-        if (error) throw error;
+        const res = await fetch("/api/equipment/my", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ equipmentId: initialData.id, ...data }),
+        });
+        if (!res.ok) throw new Error("Güncelleme başarısız");
         toast.success("İlan güncellendi!");
       } else {
-        const { error } = await createEquipment(data, user.id);
-        if (error) throw error;
+        const res = await fetch("/api/equipment/my", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error("İlan eklenemedi");
         toast.success("İlan yayınlandı!");
       }
 
