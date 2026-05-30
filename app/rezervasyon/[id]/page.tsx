@@ -91,11 +91,20 @@ export default function RezervasPage() {
       });
       const payData = await payRes.json();
 
-      if (payData.checkoutFormContent) {
+      if (payData.testMode) {
+        // Test modu: direkt onayla
+        await fetch("/api/payment/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rentalId: data.rental.id }),
+        });
+        setRentalId(data.rental.id);
+        setStep(3);
+      } else if (payData.checkoutFormContent) {
         setCheckoutHtml(payData.checkoutFormContent);
         setStep(2);
       } else {
-        toast.error("Ödeme başlatılamadı.");
+        toast.error(payData.error || "Ödeme başlatılamadı.");
       }
     } catch {
       toast.error("Bir hata oluştu.");
