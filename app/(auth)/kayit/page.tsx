@@ -35,18 +35,27 @@ export default function KayitPage() {
     }
 
     setLoading(true);
-    const { error } = await signUp(form.email, form.password, form.fullName, form.phone);
-    setLoading(false);
-
-    if (error) {
-      if (error.message?.includes("already registered")) {
-        toast.error("Bu e-posta adresi zaten kayıtlı.");
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, password: form.password, fullName: form.fullName, phone: form.phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error?.includes("already registered")) {
+          toast.error("Bu e-posta adresi zaten kayıtlı.");
+        } else {
+          toast.error(data.error || "Kayıt sırasında bir hata oluştu.");
+        }
       } else {
-        toast.error(error.message || "Kayıt sırasında bir hata oluştu.");
+        toast.success("Hesabın oluşturuldu!");
+        window.location.href = "/panel";
       }
-    } else {
-      toast.success("Hesabın oluşturuldu!");
-      router.push("/panel");
+    } catch {
+      toast.error("Bağlantı hatası. Tekrar dene.");
+    } finally {
+      setLoading(false);
     }
   };
 

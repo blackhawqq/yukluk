@@ -22,27 +22,21 @@ export default function GirisPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const supabase = createClient();
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 10000)
-      );
-      const result = await Promise.race([
-        supabase.auth.signInWithPassword({ email: form.email, password: form.password }),
-        timeout,
-      ]) as Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, password: form.password }),
+      });
+      const data = await res.json();
 
-      if (result.error) {
-        toast.error(result.error.message.includes("Invalid") ? "E-posta veya şifre hatalı." : result.error.message);
+      if (!res.ok) {
+        toast.error(data.error?.includes("Invalid") ? "E-posta veya şifre hatalı." : (data.error || "Giriş başarısız."));
       } else {
         toast.success("Hoş geldin!");
         window.location.href = "/panel";
       }
     } catch (err: any) {
-      if (err?.message === "timeout") {
-        toast.error("Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.");
-      } else {
-        toast.error("Bir hata oluştu: " + (err?.message || ""));
-      }
+      toast.error("Bağlantı hatası. Tekrar dene.");
     } finally {
       setLoading(false);
     }
