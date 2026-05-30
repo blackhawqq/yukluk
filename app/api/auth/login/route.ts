@@ -1,20 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json();
-  const cookieStore = await cookies();
+
+  // Response'u önceden oluştur — cookie'ler buna set edilecek
+  const response = NextResponse.json({ success: true });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll(); },
+        getAll() {
+          return request.cookies.getAll();
+        },
         setAll(cookiesToSet) {
+          // Session cookie'leri doğrudan response'a yaz
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            response.cookies.set(name, value, options)
           );
         },
       },
@@ -27,9 +31,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({
-    success: true,
-    access_token: data.session?.access_token,
-    refresh_token: data.session?.refresh_token,
-  });
+  return response;
 }

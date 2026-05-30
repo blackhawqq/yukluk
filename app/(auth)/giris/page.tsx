@@ -32,13 +32,7 @@ export default function GirisPage() {
       if (!res.ok) {
         toast.error(data.error?.includes("Invalid") ? "E-posta veya şifre hatalı." : (data.error || "Giriş başarısız."));
       } else {
-        // Session'ı browser'da set et
-        const supabase = createClient();
-        await supabase.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
-        });
-        toast.success("Hoş geldin!");
+        // Cookie'ler response'dan otomatik set edildi, direkt yönlendir
         window.location.href = "/panel";
       }
     } catch (err: any) {

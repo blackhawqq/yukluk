@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { PageSpinner } from "@/components/ui/Spinner";
 
 interface AuthGuardProps {
@@ -14,33 +13,25 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [state, setState] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
 
   useEffect(() => {
-    const supabase = createClient();
+    // Session'ı API üzerinden kontrol et — client-side Supabase kullanmadan
+    const timeout = setTimeout(() => setState("unauthenticated"), 5000);
 
-    // Timeout — 5 saniyede hâlâ loading ise giriş sayfasına yönlendir
-    const timeout = setTimeout(() => {
-      setState((s) => (s === "loading" ? "unauthenticated" : s));
-    }, 5000);
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then(({ authenticated }) => {
+        clearTimeout(timeout);
+        setState(authenticated ? "authenticated" : "unauthenticated");
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        setState("unauthenticated");
+      });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      clearTimeout(timeout);
-      setState(session ? "authenticated" : "unauthenticated");
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      clearTimeout(timeout);
-      setState(session ? "authenticated" : "unauthenticated");
-    });
-
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    if (state === "unauthenticated") {
-      router.replace("/giris");
-    }
+    if (state === "unauthenticated") router.replace("/giris");
   }, [state, router]);
 
   if (state === "loading") return <PageSpinner />;

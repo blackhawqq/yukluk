@@ -31,11 +31,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, profile } = useAuth();
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
     toast.success("Çıkış yapıldı");
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   };
 
   return (
