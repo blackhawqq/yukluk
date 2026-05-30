@@ -7,6 +7,7 @@ import { Eye, EyeOff, Backpack } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
+import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 
 export default function GirisPage() {
@@ -21,20 +22,27 @@ export default function GirisPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: form.email,
-        password: form.password,
-      });
-      if (error) {
-        toast.error(error.message.includes("Invalid") ? "E-posta veya şifre hatalı." : error.message);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 10000)
+      );
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email: form.email, password: form.password }),
+        timeout,
+      ]) as Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+
+      if (result.error) {
+        toast.error(result.error.message.includes("Invalid") ? "E-posta veya şifre hatalı." : result.error.message);
       } else {
         toast.success("Hoş geldin!");
         window.location.href = "/panel";
       }
-    } catch (err) {
-      toast.error("Bağlantı hatası. Tekrar dene.");
+    } catch (err: any) {
+      if (err?.message === "timeout") {
+        toast.error("Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.");
+      } else {
+        toast.error("Bir hata oluştu: " + (err?.message || ""));
+      }
     } finally {
       setLoading(false);
     }
