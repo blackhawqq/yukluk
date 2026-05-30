@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { sendConfirmationEmail } from "@/lib/email";
 
-// Test modu: ödemeyi simüle ederek kiralama onaylar
+function formatDateTR(dateStr: string) {
+  return new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(dateStr));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { rentalId } = await request.json();
@@ -14,17 +18,24 @@ export async function POST(request: NextRequest) {
 
     const { data: rental } = await (supabase
       .from("rentals")
-      .select("start_date, end_date, equipment_id")
+      .select("*, equipment(*), renter:profiles!renter_id(*)")
       .eq("id", rentalId)
-      .single() as any) as { data: { start_date: string; end_date: string; equipment_id: string } | null };
+      .single() as any) as {
+        data: {
+          start_date: string; end_date: string; equipment_id: string;
+          equipment: { title: string };
+          renter: { full_name: string };
+          renter_id: string;
+        } | null
+      };
 
     if (!rental) return NextResponse.json({ error: "Kiralama bulunamadı" }, { status: 404 });
 
     // Confirmed yap
     await (supabase.from("rentals").update({
       status: "confirmed",
-      iyzico_payment_id: `test_${rentalId}`,
-      iyzico_payment_status: "SUCCESS",
+      iyzico_payment_id: `manual_${rentalId}`,
+      iyzico_payment_status: "MANUAL",
     } as never).eq("id", rentalId) as any);
 
     // Müsait olmayan tarihleri ekle
@@ -37,6 +48,22 @@ export async function POST(request: NextRequest) {
     }
     if (dates.length > 0) {
       await (supabase.from("unavailable_dates").insert(dates as never[]) as any);
+    }
+
+    // Kullanıcıya onay maili
+    const { data: renterUser } = await supabase.auth.admin.getUserById(rental.renter_id) as any;
+    if (renterUser?.user?.email) {
+      try {
+        await sendConfirmationEmail({
+          toEmail: renterUser.user.email,
+          toName: rental.renter?.full_name || "Kullanıcı",
+          equipmentTitle: rental.equipment?.title || "Ekipman",
+          startDate: formatDateTR(rental.start_date),
+          endDate: formatDateTR(rental.end_date),
+        });
+      } catch (e) {
+        console.error("Onay maili gönderilemedi:", e);
+      }
     }
 
     return NextResponse.json({ success: true });
