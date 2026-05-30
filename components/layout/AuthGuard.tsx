@@ -1,8 +1,8 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { PageSpinner } from "@/components/ui/Spinner";
 
 interface AuthGuardProps {
@@ -10,17 +10,40 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, loading } = useAuth();
   const router = useRouter();
+  const [state, setState] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
 
   useEffect(() => {
-    if (!loading && !user) {
+    const supabase = createClient();
+
+    // Timeout — 5 saniyede hâlâ loading ise giriş sayfasına yönlendir
+    const timeout = setTimeout(() => {
+      setState((s) => (s === "loading" ? "unauthenticated" : s));
+    }, 5000);
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(timeout);
+      setState(session ? "authenticated" : "unauthenticated");
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      clearTimeout(timeout);
+      setState(session ? "authenticated" : "unauthenticated");
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (state === "unauthenticated") {
       router.replace("/giris");
     }
-  }, [user, loading, router]);
+  }, [state, router]);
 
-  if (loading) return <PageSpinner />;
-  if (!user) return null;
-
+  if (state === "loading") return <PageSpinner />;
+  if (state === "unauthenticated") return null;
   return <>{children}</>;
 }
