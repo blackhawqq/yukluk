@@ -81,8 +81,10 @@ export default function EkipmanDetayPage() {
     ? calculateRentalAmounts(equipment.daily_price, totalDays, equipment.deposit_amount)
     : null;
 
-  const handleReserve = () => {
-    if (!user) { router.push("/giris"); return; }
+  const handleReserve = async () => {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { router.push("/giris"); return; }
     if (!startDate || !endDate) return;
     router.push(`/rezervasyon/${equipment.id}?start=${startDate}&end=${endDate}`);
   };
