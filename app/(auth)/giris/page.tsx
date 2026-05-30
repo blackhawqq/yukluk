@@ -29,10 +29,9 @@ export default function GirisPage() {
       });
       if (error) {
         toast.error(error.message.includes("Invalid") ? "E-posta veya şifre hatalı." : error.message);
-      } else if (data.session) {
+      } else {
         toast.success("Hoş geldin!");
-        router.push("/panel");
-        router.refresh();
+        window.location.href = "/panel";
       }
     } catch (err) {
       toast.error("Bağlantı hatası. Tekrar dene.");
