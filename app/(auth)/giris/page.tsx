@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
-import type { Metadata } from "next";
 
 export default function GirisPage() {
   const router = useRouter();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,13 +20,24 @@ export default function GirisPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signIn(form.email, form.password);
-    setLoading(false);
-    if (error) {
-      toast.error("E-posta veya şifre hatalı.");
-    } else {
-      toast.success("Hoş geldin!");
-      router.push("/panel");
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+      if (error) {
+        toast.error(error.message.includes("Invalid") ? "E-posta veya şifre hatalı." : error.message);
+      } else if (data.session) {
+        toast.success("Hoş geldin!");
+        router.push("/panel");
+        router.refresh();
+      }
+    } catch (err) {
+      toast.error("Bağlantı hatası. Tekrar dene.");
+    } finally {
+      setLoading(false);
     }
   };
 
