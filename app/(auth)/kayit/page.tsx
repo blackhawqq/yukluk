@@ -49,6 +49,14 @@ export default function KayitPage() {
           toast.error(data.error || "Kayıt sırasında bir hata oluştu.");
         }
       } else {
+        if (data.access_token) {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          });
+        }
         toast.success("Hesabın oluşturuldu!");
         window.location.href = "/panel";
       }

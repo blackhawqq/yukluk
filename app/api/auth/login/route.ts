@@ -27,5 +27,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ success: true, user: data.user?.email });
+  return NextResponse.json({
+    success: true,
+    access_token: data.session?.access_token,
+    refresh_token: data.session?.refresh_token,
+  });
 }
