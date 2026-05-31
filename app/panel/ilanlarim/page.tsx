@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Package, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, ToggleLeft, ToggleRight, Zap, Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { CATEGORY_LABELS, formatPrice } from "@/lib/utils";
+import { CATEGORY_LABELS, formatPrice, REVENUE } from "@/lib/utils";
 import type { Equipment } from "@/types";
 import toast from "react-hot-toast";
 
+interface EquipmentWithFeatured extends Equipment {
+  is_featured?: boolean;
+  featured_until?: string;
+}
+
 export default function IlanlarimPage() {
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [equipment, setEquipment] = useState<EquipmentWithFeatured[]>([]);
   const [loading, setLoading] = useState(true);
+  const [featuringId, setFeaturingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/equipment/my")
@@ -19,7 +25,7 @@ export default function IlanlarimPage() {
       .then(({ equipment }) => { setEquipment(equipment || []); setLoading(false); });
   }, []);
 
-  const handleToggle = async (eq: Equipment) => {
+  const handleToggle = async (eq: EquipmentWithFeatured) => {
     const res = await fetch("/api/equipment/my", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -37,9 +43,35 @@ export default function IlanlarimPage() {
     if (res.ok) {
       setEquipment(prev => prev.filter(e => e.id !== id));
       toast.success("İlan silindi");
-    } else {
-      toast.error("İlan silinemedi");
     }
+  };
+
+  const handleFeature = async (eq: EquipmentWithFeatured) => {
+    setFeaturingId(eq.id);
+    const res = await fetch("/api/monetization/featured", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ equipmentId: eq.id, weeks: 1 }),
+    });
+    const data = await res.json();
+    setFeaturingId(null);
+    if (res.ok) {
+      setEquipment(prev => prev.map(e => e.id === eq.id ? { ...e, is_featured: true, featured_until: data.featuredUntil } : e));
+      toast.success(`✨ İlan öne çıkarıldı! ${data.cost} TL IBAN'a gönder: ${process.env.NEXT_PUBLIC_ADMIN_IBAN || "Profil sayfasında görebilirsiniz"}`);
+    } else {
+      toast.error("Öne çıkarılamadı.");
+    }
+  };
+
+  const isFeaturedActive = (eq: EquipmentWithFeatured) => {
+    if (!eq.is_featured || !eq.featured_until) return false;
+    return new Date(eq.featured_until) > new Date();
+  };
+
+  const featuredUntilText = (eq: EquipmentWithFeatured) => {
+    if (!eq.featured_until) return "";
+    const d = new Date(eq.featured_until);
+    return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
   };
 
   return (
@@ -49,6 +81,25 @@ export default function IlanlarimPage() {
         <Link href="/panel/ilan-ekle">
           <Button size="sm"><Plus className="w-4 h-4" /> Yeni İlan</Button>
         </Link>
+      </div>
+
+      {/* Pro üyelik banner */}
+      <div className="bg-gradient-to-r from-forest to-forest-light rounded-2xl p-5 mb-6 flex items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Star className="w-4 h-4 text-orange" />
+            <span className="font-bold text-cream">Pro Hesap</span>
+            <span className="bg-orange text-white text-xs px-2 py-0.5 rounded-full">{REVENUE.PRO_PRICE_MONTHLY} TL/ay</span>
+          </div>
+          <p className="text-cream/70 text-xs">Sınırsız ilan + otomatik öne çıkar + Pro rozeti + öncelikli destek</p>
+        </div>
+        <Button size="sm" variant="primary" onClick={async () => {
+          const res = await fetch("/api/monetization/pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ months: 1 }) });
+          const data = await res.json();
+          if (res.ok) toast.success(`Pro hesap aktif! ${data.cost} TL IBAN'a gönder.`);
+        }}>
+          Pro Ol
+        </Button>
       </div>
 
       {loading ? (
@@ -63,7 +114,13 @@ export default function IlanlarimPage() {
       ) : (
         <div className="space-y-4">
           {equipment.map(eq => (
-            <div key={eq.id} className="bg-white rounded-2xl border border-cream-dark p-5">
+            <div key={eq.id} className={`bg-white rounded-2xl border p-5 transition-all ${isFeaturedActive(eq) ? "border-orange shadow-sm shadow-orange/20" : "border-cream-dark"}`}>
+              {isFeaturedActive(eq) && (
+                <div className="flex items-center gap-1.5 mb-3 text-orange text-xs font-medium">
+                  <Zap className="w-3.5 h-3.5 fill-orange" />
+                  Öne Çıkan — {featuredUntilText(eq)}'e kadar
+                </div>
+              )}
               <div className="flex gap-4">
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-cream-dark flex-shrink-0">
                   {eq.images?.[0] ? (
@@ -85,7 +142,17 @@ export default function IlanlarimPage() {
                       <p className="font-bold text-dark">{formatPrice(eq.daily_price)}<span className="text-stone text-xs font-normal ml-1">/gün</span></p>
                       <p className="text-stone text-xs">{eq.total_rentals} kiralama</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      {!isFeaturedActive(eq) && (
+                        <button
+                          onClick={() => handleFeature(eq)}
+                          disabled={featuringId === eq.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange text-orange text-xs font-medium hover:bg-orange hover:text-white transition-all disabled:opacity-50"
+                          title={`Öne Çıkar — ${REVENUE.FEATURED_PRICE_WEEKLY} TL/hafta`}
+                        >
+                          <Zap className="w-3 h-3" /> Öne Çıkar
+                        </button>
+                      )}
                       <button onClick={() => handleToggle(eq)} className="p-2 rounded-lg hover:bg-cream-dark transition-colors text-stone hover:text-forest">
                         {eq.is_available ? <ToggleRight className="w-5 h-5 text-forest" /> : <ToggleLeft className="w-5 h-5" />}
                       </button>

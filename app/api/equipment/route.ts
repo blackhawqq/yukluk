@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
   if (onlyAvailable === "true") query = query.eq("is_available", true);
   if (search) query = query.ilike("title", `%${search}%`);
 
+  // Öne çıkanlar her zaman üstte
+  query = query.order("is_featured", { ascending: false });
   switch (sortBy) {
     case "cheapest": query = query.order("daily_price", { ascending: true }); break;
     case "expensive": query = query.order("daily_price", { ascending: false }); break;

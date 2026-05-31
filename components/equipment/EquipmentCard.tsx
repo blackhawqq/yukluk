@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Heart, Star } from "lucide-react";
+import { MapPin, Heart, Star, Zap } from "lucide-react";
 import { useState } from "react";
-import { cn, CATEGORY_LABELS, formatPrice } from "@/lib/utils";
+import { cn, CATEGORY_LABELS, formatPrice, REVENUE } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { EquipmentWithOwner } from "@/types";
@@ -33,11 +33,16 @@ export function EquipmentCard({ equipment, onFavorite }: EquipmentCardProps) {
             <span className="text-5xl">🎒</span>
           </div>
         )}
-        {/* Category badge */}
-        <div className="absolute top-3 left-3">
+        {/* Category + Featured badges */}
+        <div className="absolute top-3 left-3 flex flex-col gap-1">
           <Badge variant="forest" className="text-xs">
             {CATEGORY_LABELS[equipment.category]}
           </Badge>
+          {(equipment as any).is_featured && (equipment as any).featured_until && new Date((equipment as any).featured_until) > new Date() && (
+            <span className="inline-flex items-center gap-1 bg-orange text-white text-xs px-2 py-0.5 rounded-full font-medium">
+              <Zap className="w-2.5 h-2.5 fill-white" /> Öne Çıkan
+            </span>
+          )}
         </div>
         {/* Favorite */}
         {onFavorite && (

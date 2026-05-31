@@ -1,5 +1,13 @@
 import { EquipmentCategory, EquipmentCondition, RentalStatus } from "./supabase/types";
 
+// Gelir Modeli Sabitleri
+export const REVENUE = {
+  COMMISSION_RATE: 0.10,        // %10 komisyon
+  DEPOSIT_GUARANTEE_RATE: 0.02, // %2 depozito güvencesi (opsiyonel)
+  FEATURED_PRICE_WEEKLY: 49,    // Öne Çıkar: 49 TL/hafta
+  PRO_PRICE_MONTHLY: 149,       // Pro Hesap: 149 TL/ay
+} as const;
+
 export function formatPrice(amount: number): string {
   return new Intl.NumberFormat("tr-TR", {
     style: "currency",
@@ -40,11 +48,12 @@ export function getDaysBetween(start: string, end: string): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-export function calculateRentalAmounts(dailyPrice: number, totalDays: number, depositAmount: number) {
+export function calculateRentalAmounts(dailyPrice: number, totalDays: number, depositAmount: number, withGuarantee = false) {
   const rentalAmount = dailyPrice * totalDays;
-  const platformFee = rentalAmount * 0.22;
-  const ownerPayout = rentalAmount * 0.78;
-  return { rentalAmount, platformFee, ownerPayout, depositAmount };
+  const platformFee = rentalAmount * REVENUE.COMMISSION_RATE;
+  const ownerPayout = rentalAmount * (1 - REVENUE.COMMISSION_RATE);
+  const guaranteeFee = withGuarantee ? rentalAmount * REVENUE.DEPOSIT_GUARANTEE_RATE : 0;
+  return { rentalAmount, platformFee, ownerPayout, depositAmount, guaranteeFee };
 }
 
 export const CATEGORY_LABELS: Record<EquipmentCategory, string> = {

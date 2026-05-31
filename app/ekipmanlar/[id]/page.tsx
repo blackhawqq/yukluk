@@ -15,7 +15,8 @@ import { StarRating } from "@/components/ui/StarRating";
 import { DateRangePicker } from "@/components/equipment/DateRangePicker";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { useAuth } from "@/hooks/useAuth";
-import { CATEGORY_LABELS, CONDITION_LABELS, formatPrice, formatDate, getDaysBetween, calculateRentalAmounts, getWhatsAppUrl } from "@/lib/utils";
+import { CATEGORY_LABELS, CONDITION_LABELS, formatPrice, formatDate, getDaysBetween, calculateRentalAmounts } from "@/lib/utils";
+import { ContactOwnerButton } from "@/components/equipment/ContactOwnerButton";
 import type { EquipmentWithOwner, Review, ReviewWithReviewer } from "@/types";
 import { MessageCircle as WA } from "lucide-react";
 
@@ -195,15 +196,12 @@ export default function EkipmanDetayPage() {
                       )}
                     </div>
                   </Link>
-                  <a
-                    href={getWhatsAppUrl(equipment.owner?.phone || whatsappNumber, `Merhaba, ${equipment.title} hakkında sorum var.`)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm">
-                      <MessageCircle className="w-4 h-4" /> Soru Sor
-                    </Button>
-                  </a>
+                  <ContactOwnerButton
+                    ownerId={equipment.owner_id}
+                    ownerName={equipment.owner?.full_name || "Kiraya Veren"}
+                    equipmentId={equipment.id}
+                    equipmentTitle={equipment.title}
+                  />
                 </div>
               </div>
 
